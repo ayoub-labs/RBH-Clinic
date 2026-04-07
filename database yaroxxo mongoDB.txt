@@ -1,0 +1,3 @@
+Username: yaroxo_db_user
+Password: vFTBdlQDmlYQDTJu
+mongodb+srv://yaroxo_db_user:vFTBdlQDmlYQDTJu@cluster0.bohif5w.mongodb.net/?appName=Cluster0
