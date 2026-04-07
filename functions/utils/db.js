@@ -1,3 +1,4 @@
+// Using standard connection string (non-SRV) for Cloudflare compatibility
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
 let cachedClient = null;
