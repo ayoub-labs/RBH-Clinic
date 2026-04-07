@@ -1,4 +1,16 @@
-// Using standard connection string (non-SRV) for Cloudflare compatibility
+// Edge Socket Patch: Cloudflare's polyfills are sometimes missing .once() on sockets
+import { EventEmitter } from 'node:events';
+import net from 'node:net';
+import tls from 'node:tls';
+
+// Apply the patch to standard and TLS sockets
+[net.Socket, tls.TLSSocket].forEach(SocketClass => {
+    if (SocketClass && SocketClass.prototype && !SocketClass.prototype.once) {
+        console.log(`🔧 Patching ${SocketClass.name} with missing .once() method`);
+        SocketClass.prototype.once = EventEmitter.prototype.once;
+    }
+});
+
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
 let cachedClient = null;
@@ -21,16 +33,20 @@ export async function connectToDatabase(env) {
                 version: ServerApiVersion.v1,
                 strict: true,
                 deprecationErrors: true,
-            }
+            },
+            // Reduce connection resource usage on Edge
+            connectTimeoutMS: 10000,
+            socketTimeoutMS: 45000,
+            maxPoolSize: 1
         });
 
         await client.connect();
-        const db = client.db(); // Uses the default DB from the URI
+        const db = client.db();
 
         cachedClient = client;
         cachedDb = db;
 
-        console.log("✅ Successfully connected to MongoDB via Official Driver");
+        console.log("✅ Successfully connected to MongoDB via Patched Official Driver");
         return { client, db };
     } catch (error) {
         console.error("❌ MongoDB connection error:", error.message);
