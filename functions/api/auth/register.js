@@ -54,7 +54,10 @@ export const onRequestPost = async (context) => {
 
     } catch (err) {
         console.error('Erreur lors de l\'inscription:', err.message);
-        return new Response(JSON.stringify({ message: 'Erreur serveur' }), {
+        return new Response(JSON.stringify({
+            message: 'Erreur serveur',
+            debug: err.message
+        }), {
             status: 500,
             headers: { "Content-Type": "application/json" }
         });
