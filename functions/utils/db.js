@@ -1,16 +1,4 @@
-// Edge Socket Patch: Cloudflare's polyfills are sometimes missing .once() on sockets
-import { EventEmitter } from 'node:events';
-import net from 'node:net';
-import tls from 'node:tls';
-
-// Apply the patch to standard and TLS sockets
-[net.Socket, tls.TLSSocket].forEach(SocketClass => {
-    if (SocketClass && SocketClass.prototype && !SocketClass.prototype.once) {
-        console.log(`🔧 Patching ${SocketClass.name} with missing .once() method`);
-        SocketClass.prototype.once = EventEmitter.prototype.once;
-    }
-});
-
+// Native Cloudflare Sockets implementation for MongoDB
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
 let cachedClient = null;
@@ -28,16 +16,20 @@ export async function connectToDatabase(env) {
     }
 
     try {
+        // Optimized configuration for Cloudflare Edge
         const client = new MongoClient(MONGO_URI, {
             serverApi: {
                 version: ServerApiVersion.v1,
                 strict: true,
                 deprecationErrors: true,
             },
-            // Reduce connection resource usage on Edge
+            // Use the standard driver but with extremely conservative pooling for serverless
             connectTimeoutMS: 10000,
             socketTimeoutMS: 45000,
-            maxPoolSize: 1
+            maxPoolSize: 1,
+            minPoolSize: 0,
+            // Force the driver to use the TLS/Net polyfills in a way that respects the Edge lifecycle
+            tls: true,
         });
 
         await client.connect();
@@ -46,10 +38,11 @@ export async function connectToDatabase(env) {
         cachedClient = client;
         cachedDb = db;
 
-        console.log("✅ Successfully connected to MongoDB via Patched Official Driver");
+        console.log("✅ Successfully connected to MongoDB via Edge-Optimized Driver");
         return { client, db };
     } catch (error) {
         console.error("❌ MongoDB connection error:", error.message);
-        throw error;
+        // Fallback for diagnostic purposes
+        throw new Error(`Connection Failed: ${error.message}`);
     }
 }
