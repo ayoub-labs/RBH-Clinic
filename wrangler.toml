@@ -1,8 +1,4 @@
-#:schema https://github.com/cloudflare/workers-sdk/blob/main/packages/wrangler/config-schema.json
 name = "rbh-clinic-system"
+pages_build_output_dir = "dist"
 compatibility_date = "2024-04-03"
 compatibility_flags = ["nodejs_compat"]
-
-[pages_build_config]
-build_command = "npm run build"
-destination_dir = "dist"
