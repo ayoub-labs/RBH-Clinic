@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { connectToDatabase } from '../../utils/db.js';
-import User from '../../models/User.js';
+import { USER_COLLECTION, UserSchema } from '../../models/User.js';
 
 export const onRequestPost = async (context) => {
     const { request, env } = context;
@@ -8,47 +8,32 @@ export const onRequestPost = async (context) => {
     try {
         const { email, password } = await request.json();
 
-        // 1. Check for Admin Login
-        if (email === env.ADMIN_ID && password === env.ADMIN_PASSWORD) {
-            const token = jwt.sign(
-                { user: { id: 'admin', role: 'ADMIN' } },
-                env.JWT_SECRET || 'fallback_secret',
-                { expiresIn: '7d' }
-            );
+        // Ensure DB connection
+        const { db } = await connectToDatabase(env);
+        const users = db.collection(USER_COLLECTION);
 
-            return new Response(JSON.stringify({
-                message: "Connexion réussie",
-                token,
-                user: { email, role: 'ADMIN', name: 'Administrateur' }
-            }), {
-                status: 200,
-                headers: { "Content-Type": "application/json" }
-            });
-        }
-
-        // 2. Patient / Standard User Login via MongoDB
-        await connectToDatabase(env);
-
-        const user = await User.findOne({ email });
+        // Find user by email
+        const user = await users.findOne({ email: email.toLowerCase() });
         if (!user) {
-            return new Response(JSON.stringify({ message: "Identifiants invalides." }), {
+            return new Response(JSON.stringify({ message: 'Identifiants invalides.' }), {
                 status: 400,
                 headers: { "Content-Type": "application/json" }
             });
         }
 
-        const isMatch = await user.comparePassword(password);
+        // Verify password
+        const isMatch = await UserSchema.comparePassword(password, user.password);
         if (!isMatch) {
-            return new Response(JSON.stringify({ message: "Identifiants invalides." }), {
+            return new Response(JSON.stringify({ message: 'Identifiants invalides.' }), {
                 status: 400,
                 headers: { "Content-Type": "application/json" }
             });
         }
 
-        // 3. Generate Token for User
+        // Generate JWT
         const payload = {
             user: {
-                id: user.id,
+                id: user._id.toString(),
                 role: user.role
             }
         };
@@ -58,9 +43,14 @@ export const onRequestPost = async (context) => {
         });
 
         return new Response(JSON.stringify({
-            message: "Connexion réussie.",
             token,
-            user: { firstName: user.firstName, lastName: user.lastName, email: user.email }
+            user: {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role
+            },
+            message: 'Connexion réussie.'
         }), {
             status: 200,
             headers: { "Content-Type": "application/json" }
@@ -68,7 +58,7 @@ export const onRequestPost = async (context) => {
 
     } catch (err) {
         console.error('Erreur lors de la connexion:', err.message);
-        return new Response(JSON.stringify({ message: 'Erreur serveur' }), {
+        return new Response(JSON.stringify({ message: 'Erreur serveur', debug: err.message }), {
             status: 500,
             headers: { "Content-Type": "application/json" }
         });

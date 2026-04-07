@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { connectToDatabase } from '../../utils/db.js';
-import User from '../../models/User.js';
+import { USER_COLLECTION, UserSchema } from '../../models/User.js';
 
 export const onRequestPost = async (context) => {
     const { request, env } = context;
@@ -9,33 +9,35 @@ export const onRequestPost = async (context) => {
         const { firstName, lastName, email, phone, password } = await request.json();
 
         // Ensure DB connection
-        await connectToDatabase(env);
+        const { db } = await connectToDatabase(env);
+        const users = db.collection(USER_COLLECTION);
 
         // Check if user already exists
-        let user = await User.findOne({ email });
-        if (user) {
+        const existingUser = await users.findOne({ email: email.toLowerCase() });
+        if (existingUser) {
             return new Response(JSON.stringify({ message: 'Un utilisateur avec cet email existe déjà.' }), {
                 status: 400,
                 headers: { "Content-Type": "application/json" }
             });
         }
 
-        // Create user
-        user = new User({
+        // Prepare and insert user
+        const userData = await UserSchema.prepare({
             firstName,
             lastName,
             email,
             phone,
-            password
+            password,
+            role: 'patient'
         });
 
-        await user.save();
+        const result = await users.insertOne(userData);
 
         // Generate JWT
         const payload = {
             user: {
-                id: user.id,
-                role: user.role
+                id: result.insertedId.toString(),
+                role: userData.role
             }
         };
 
@@ -45,7 +47,7 @@ export const onRequestPost = async (context) => {
 
         return new Response(JSON.stringify({
             token,
-            user: { firstName, lastName, email },
+            user: { firstName, lastName, email: email.toLowerCase() },
             message: 'Inscription réussie.'
         }), {
             status: 201,
@@ -54,10 +56,7 @@ export const onRequestPost = async (context) => {
 
     } catch (err) {
         console.error('Erreur lors de l\'inscription:', err.message);
-        return new Response(JSON.stringify({
-            message: 'Erreur serveur',
-            debug: err.message
-        }), {
+        return new Response(JSON.stringify({ message: 'Erreur serveur', debug: err.message }), {
             status: 500,
             headers: { "Content-Type": "application/json" }
         });

@@ -1,60 +1,27 @@
-import { mongoose } from '../utils/db.js';
 import bcrypt from 'bcryptjs';
 
-const userSchema = new mongoose.Schema({
-    firstName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    lastName: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    email: {
-        type: String,
-        required: true,
-        unique: true,
-        trim: true,
-        lowercase: true
-    },
-    phone: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    password: {
-        type: String,
-        required: true,
-        minlength: 8
-    },
-    role: {
-        type: String,
-        enum: ['patient', 'admin'],
-        default: 'patient'
-    }
-}, { timestamps: true });
+export const USER_COLLECTION = 'users';
 
-// Hash the password before saving
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        return next();
-    }
-
-    try {
+export const UserSchema = {
+    prepare: async (userData) => {
         const salt = await bcrypt.genSalt(4);
-        this.password = await bcrypt.hash(this.password, salt);
-        next();
-    } catch (error) {
-        next(error);
-    }
-});
+        const hashedPassword = await bcrypt.hash(userData.password, salt);
 
-// Method to compare password for login
-userSchema.methods.comparePassword = async function (candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
+        return {
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            email: userData.email.toLowerCase(),
+            phone: userData.phone,
+            password: hashedPassword,
+            role: userData.role || 'patient',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+    },
+
+    comparePassword: async (candidatePassword, hashedPassword) => {
+        return await bcrypt.compare(candidatePassword, hashedPassword);
+    }
 };
 
-// Check if model already compiled to prevent recompilation in serverless contexts
-export default mongoose.models?.User || mongoose.model('User', userSchema);
+export default UserSchema;

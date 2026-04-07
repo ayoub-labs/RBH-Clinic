@@ -1,66 +1,67 @@
 import { connectToDatabase } from '../utils/db.js';
-import Appointment from '../models/Appointment.js';
-import jwt from 'jsonwebtoken';
+import { APPOINTMENT_COLLECTION, AppointmentSchema } from '../models/Appointment.js';
 
+// GET all appointments
 export const onRequestGet = async (context) => {
     try {
-        await connectToDatabase(context.env);
-        const appointments = await Appointment.find().sort({ date: 1 });
-        const mappedAppts = appointments.map(app => ({
-            id: app._id,
-            name: app.name,
-            date: app.date,
-            city: app.city,
-            status: app.status
-        }));
-        return new Response(JSON.stringify(mappedAppts), {
+        const { db } = await connectToDatabase(context.env);
+        const appointments = await db.collection(APPOINTMENT_COLLECTION)
+            .find({})
+            .sort({ createdAt: -1 })
+            .toArray();
+
+        return new Response(JSON.stringify(appointments), {
             status: 200,
             headers: { "Content-Type": "application/json" }
         });
     } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: err.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" }
+        });
     }
 };
 
+// POST check if appointment exists and then book it
 export const onRequestPost = async (context) => {
-    try {
-        await connectToDatabase(context.env);
-        const { request, env } = context;
+    const { request, env } = context;
 
-        const authHeader = request.headers.get('Authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return new Response(JSON.stringify({ message: "Non autorisé" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    try {
+        const body = await request.json();
+        const { userId, name, date, city } = body;
+
+        const { db } = await connectToDatabase(env);
+        const appointments = db.collection(APPOINTMENT_COLLECTION);
+
+        // Check if appointment already exists for this exact slot
+        const existing = await appointments.findOne({ date, city });
+        if (existing) {
+            return new Response(JSON.stringify({ message: 'Ce créneau est déjà réservé.' }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" }
+            });
         }
 
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, env.JWT_SECRET || 'fallback_secret');
-        const userId = decoded.user.id;
-
-        const body = await request.json();
-
-        const newAppt = new Appointment({
+        // Prepare and insert
+        const appointmentData = AppointmentSchema.prepare({
             userId,
-            name: body.name,
-            date: body.date,
-            city: body.city,
+            name,
+            date,
+            city,
             status: 'En attente'
         });
 
-        const saved = await newAppt.save();
+        await appointments.insertOne(appointmentData);
 
-        const responseObj = {
-            id: saved._id,
-            name: saved.name,
-            date: saved.date,
-            city: saved.city,
-            status: saved.status
-        };
-
-        return new Response(JSON.stringify(responseObj), {
+        return new Response(JSON.stringify({ message: 'Rendez-vous réservé avec succès.' }), {
             status: 201,
             headers: { "Content-Type": "application/json" }
         });
+
     } catch (err) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ message: 'Erreur lors de la réservation', error: err.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" }
+        });
     }
 };

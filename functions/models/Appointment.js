@@ -1,31 +1,17 @@
-import { mongoose } from '../utils/db.js';
+export const APPOINTMENT_COLLECTION = 'appointments';
 
-const appointmentSchema = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    name: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    date: {
-        type: String, // format "YYYY-MM-DD HH:mm"
-        required: true
-    },
-    city: {
-        type: String,
-        required: true,
-        trim: true
-    },
-    status: {
-        type: String,
-        enum: ['En attente', 'Confirmé', 'Annulé'],
-        default: 'En attente'
+export const AppointmentSchema = {
+    prepare: (appointmentData) => {
+        return {
+            userId: appointmentData.userId,
+            name: appointmentData.name,
+            date: appointmentData.date, // format "YYYY-MM-DD HH:mm"
+            city: appointmentData.city,
+            status: appointmentData.status || 'En attente',
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
     }
-}, { timestamps: true });
+};
 
-// Check if model already compiled to prevent recompilation in serverless contexts
-export default mongoose.models?.Appointment || mongoose.model('Appointment', appointmentSchema);
+export default AppointmentSchema;
