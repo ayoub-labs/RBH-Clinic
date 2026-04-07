@@ -1,7 +1,6 @@
-import mongoose from 'mongoose';
-
-// Handle ESM/CJS interop for Mongoose in Cloudflare environment
-const m = mongoose.default || mongoose;
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const mongoose = require('mongoose');
 
 let cachedDb = null;
 
@@ -23,8 +22,8 @@ export async function connectToDatabase(env) {
             socketTimeoutMS: 45000
         };
 
-        // Use the resolved mongoose object
-        const conn = await m.connect(MONGO_URI, opts);
+        // Use the require'd mongoose object
+        const conn = await mongoose.connect(MONGO_URI, opts);
         cachedDb = conn;
         console.log("✅ Successfully connected to MongoDB from Cloudflare Functions");
         return conn;
@@ -34,4 +33,4 @@ export async function connectToDatabase(env) {
     }
 }
 
-export { m as mongoose };
+export { mongoose };
