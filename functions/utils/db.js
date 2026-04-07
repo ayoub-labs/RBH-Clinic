@@ -1,4 +1,7 @@
-import mongoose from 'mongoose/dist/browser.umd.js';
+import * as M from 'mongoose';
+
+// Smart resolution for Mongoose object
+const mongoose = M.connect ? M : (M.default && M.default.connect ? M.default : M);
 
 let cachedDb = null;
 
@@ -20,10 +23,22 @@ export async function connectToDatabase(env) {
             socketTimeoutMS: 45000
         };
 
-        const conn = await mongoose.connect(MONGO_URI, opts);
-        cachedDb = conn;
+        // Use the smart-resolved mongoose object
+        if (typeof mongoose.connect !== 'function') {
+            // One last ditch effort if resolution failed
+            const altM = M.default || M;
+            if (typeof altM.connect !== 'function') {
+                throw new Error(`Mongoose resolution failed. Keys: ${Object.keys(M).join(', ')}`);
+            }
+            const conn = await altM.connect(MONGO_URI, opts);
+            cachedDb = conn;
+        } else {
+            const conn = await mongoose.connect(MONGO_URI, opts);
+            cachedDb = conn;
+        }
+
         console.log("✅ Successfully connected to MongoDB from Cloudflare Functions");
-        return conn;
+        return cachedDb;
     } catch (error) {
         console.error("❌ MongoDB connection error:", error.message);
         throw error;
