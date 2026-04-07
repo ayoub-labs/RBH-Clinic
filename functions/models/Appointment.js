@@ -1,4 +1,4 @@
-import * as mongoose from 'mongoose';
+import { mongoose } from '../utils/db.js';
 
 const appointmentSchema = new mongoose.Schema({
     userId: {
