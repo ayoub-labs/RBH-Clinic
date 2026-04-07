@@ -1,36 +1,5 @@
-// NUCLEAR Edge Socket Patch: Intercept and wrap the actual connection factories
-import net from 'node:net';
-import tls from 'node:tls';
-import { EventEmitter } from 'node:events';
-
-// Function to safely inject .once() into a socket instance
-const injectOnce = (socket) => {
-    if (socket && !socket.once) {
-        socket.once = function (event, listener) {
-            const wrapper = (...args) => {
-                this.removeListener(event, wrapper);
-                listener.apply(this, args);
-            };
-            return this.on(event, wrapper);
-        };
-    }
-    return socket;
-};
-
-// Wrap net.connect and net.createConnection
-const originalNetConnect = net.connect;
-net.connect = function (...args) {
-    return injectOnce(originalNetConnect.apply(this, args));
-};
-net.createConnection = net.connect;
-
-// Wrap tls.connect
-const originalTlsConnect = tls.connect;
-tls.connect = function (...args) {
-    return injectOnce(originalTlsConnect.apply(this, args));
-};
-
 import { MongoClient, ServerApiVersion } from 'mongodb';
+import { connect } from 'cloudflare:sockets';
 
 let cachedClient = null;
 let cachedDb = null;
@@ -53,11 +22,17 @@ export async function connectToDatabase(env) {
                 strict: true,
                 deprecationErrors: true,
             },
+            // THE HOLY GRAIL: Use Cloudflare's native TCP sockets directly
+            // This avoids all the Node.js polyfill bugs
+            stream: (address) => {
+                console.log(`📡 Opening native Edge socket to ${address.host}:${address.port}`);
+                return connect(`${address.host}:${address.port}`, {
+                    secureTransport: 'on' // Use TLS
+                });
+            },
             connectTimeoutMS: 20000,
             socketTimeoutMS: 45000,
-            maxPoolSize: 1,
-            // Force direct connection to avoid SRV-related socket issues
-            directConnection: MONGO_URI.includes('shard') && !MONGO_URI.includes('+srv')
+            maxPoolSize: 1
         });
 
         await client.connect();
@@ -66,7 +41,7 @@ export async function connectToDatabase(env) {
         cachedClient = client;
         cachedDb = db;
 
-        console.log("✅ Successfully connected to MongoDB via Nuclearly Patched Driver");
+        console.log("✅ Successfully connected to MongoDB via Native Edge Sockets");
         return { client, db };
     } catch (error) {
         console.error("❌ MongoDB connection error:", error.message);
