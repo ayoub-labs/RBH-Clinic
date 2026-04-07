@@ -1,6 +1,4 @@
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const mongoose = require('mongoose');
+import mongoose from 'mongoose/dist/browser.umd.js';
 
 let cachedDb = null;
 
@@ -22,7 +20,6 @@ export async function connectToDatabase(env) {
             socketTimeoutMS: 45000
         };
 
-        // Use the require'd mongoose object
         const conn = await mongoose.connect(MONGO_URI, opts);
         cachedDb = conn;
         console.log("✅ Successfully connected to MongoDB from Cloudflare Functions");
