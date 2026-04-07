@@ -1,5 +1,5 @@
-import { connectToDatabase } from '../../../utils/db.js';
-import Appointment from '../../../models/Appointment.js';
+import { connectToDatabase } from '../../utils/db.js';
+import Appointment from '../../models/Appointment.js';
 
 export const onRequestDelete = async (context) => {
     try {

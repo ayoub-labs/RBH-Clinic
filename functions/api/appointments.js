@@ -1,5 +1,5 @@
-import { connectToDatabase } from '../../utils/db.js';
-import Appointment from '../../models/Appointment.js';
+import { connectToDatabase } from '../utils/db.js';
+import Appointment from '../models/Appointment.js';
 import jwt from 'jsonwebtoken';
 
 export const onRequestGet = async (context) => {
