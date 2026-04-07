@@ -28,4 +28,4 @@ const appointmentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Check if model already compiled to prevent recompilation in serverless contexts
-export default mongoose.models.Appointment || mongoose.model('Appointment', appointmentSchema);
+export default mongoose.models?.Appointment || mongoose.model('Appointment', appointmentSchema);

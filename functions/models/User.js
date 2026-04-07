@@ -57,4 +57,4 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 };
 
 // Check if model already compiled to prevent recompilation in serverless contexts
-export default mongoose.models.User || mongoose.model('User', userSchema);
+export default mongoose.models?.User || mongoose.model('User', userSchema);
